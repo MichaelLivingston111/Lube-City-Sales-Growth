@@ -1,0 +1,244 @@
+---
+title: "Lube_city"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+suppressMessages(library(ggfortify))
+suppressMessages(library(ggplot2))
+suppressMessages(library(fpp2))
+suppressMessages(library(mgcv))
+suppressMessages(library(forcats))
+suppressMessages(library(dplyr))
+suppressMessages(library(ggpubr))
+
+```
+
+
+
+```{r}
+
+data <- read.csv("Data.csv", stringsAsFactors = FALSE)
+
+data2 <- data[!(data$Month == "2021_Nov"), ]
+
+# Store 16 data:
+data_16 <- data[!(data$Store_Id == "1" | data$Store_Id == "23" | data$Month == "2021_Nov" | data$Month == "2021_Oct"), ]
+data_16_allmonths <- data[!(data$Store_Id == "1" | data$Store_Id == "23"), ]
+
+
+# Store 1 data:
+data_1 <- data[!(data$Store_Id == "16" | data$Store_Id == "23" | data$Month == "2021_Nov" | data$Month == "2021_Oct"), ]
+data_1_allmonths <- data[!(data$Store_Id == "16" | data$Store_Id == "23"), ]
+
+
+```
+
+
+```{r}
+
+# Set as a time series:
+Y <- ts(data$Sales, start = c(2020, 10), frequency = 12)
+
+print(Y)
+
+```
+
+
+```{r}
+
+# Time plot:
+
+autoplot(Y) 
+
+
+
+```
+
+
+```{r}
+
+fit_ets <- ets(Y)
+print(summary(fit_ets))
+checkresiduals(fit_ets)
+
+
+fit_arima <- auto.arima(Y)
+print(summary(fit_arima))
+checkresiduals(fit_arima)
+
+
+```
+```{r}
+
+fcast <- forecast(fit_arima, h = 2)
+
+autoplot(fcast)
+
+```
+
+# Lets try some GAMS:
+
+Store 16
+```{r}
+# Create a general additive model to estimate monthly revenue based off of 2020 monthly revenue, 
+# excluding Oct and Nov 2021:
+
+
+# Tire services:
+model_gam_services <- gam(Service_sales ~ s(Month_count, k = 11, bs = 'cc'), data = data_16)  # model
+data_16_allmonths$fit_services <- predict(model_gam_services, data_16_allmonths, type = "response")  # estimates
+
+
+# Tire sales:
+model_gam_sales <- gam(Tire_Sales ~ s(Month_count, k = 6, bs = 'cc'), data = data_16)  # model
+data_16_allmonths$fit_sales <- predict(model_gam_sales, data_16_allmonths, type = "response")  # estimates
+
+```
+
+
+
+Store 16
+```{r}
+
+
+# Tire sales services:
+
+# Apply the model to the entire data frame, and make predictions over the entire period, 
+#including Oct and Nov 2021:
+
+
+ggplot() +
+  
+  geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$Service_sales, 
+                 colour = data_16_allmonths$Sign), alpha = 0.5) +
+  #geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_services), colour = "blue", alpha = 0.4) +
+
+
+  geom_smooth(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_services, group = 1), 
+              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+
+  
+  ylim(0, 15000) +
+  xlab("") +
+  theme_gray() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(limits = data_16_allmonths$Month) +
+  ylab("Tire Service Sales")
+
+
+
+################################################################################
+
+# Tires sales:
+
+ggplot() +
+  
+  geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$Tire_Sales,
+                 colour = data_16_allmonths$Sign), alpha = 0.5) +
+  #geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_sales), colour = "blue", alpha = 0.4) +
+
+
+  geom_smooth(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_sales, group = 1), 
+              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+
+  
+  ylim(0, 19000) +
+  xlab("") +
+  theme_gray() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(limits = data_16_allmonths$Month) +
+  ylab("Tire Sales")
+
+
+```
+
+Store 1
+```{r}
+# Create a general additive model to estimate monthly revenue based off of 2020 monthly revenue, 
+# excluding Oct and Nov 2021:
+
+
+# Tire services:
+model_gam_services <- gam(Service_sales ~ s(Month_count, k = 10, bs = 'cc'), data = data_1)  # model
+data_1_allmonths$fit_services <- predict(model_gam_services, data_16_allmonths, type = "response")  # estimates
+
+
+# Tire sales:
+model_gam_sales <- gam(Tire_Sales ~ s(Month_count, k = 10, bs = 'cc'), data = data_1)  # model
+data_1_allmonths$fit_sales <- predict(model_gam_sales, data_1_allmonths, type = "response")  # estimates
+
+```
+
+
+
+Store 1
+```{r}
+
+
+# Tire sales services:
+
+# Apply the model to the entire data frame, and make predictions over the entire period, 
+#including Oct and Nov 2021:
+
+
+ggplot() +
+  
+  geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$Service_sales, 
+                 colour = data_1_allmonths$Sign), alpha = 0.5) +
+  #geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_services), colour = "blue", alpha = 0.4) +
+
+
+  geom_smooth(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_services, group = 1), 
+              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+
+  
+  ylim(0, 5000) +
+  xlab("") +
+  theme_gray() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(limits = data_1_allmonths$Month) +
+  ylab("Tire Service Sales")
+
+
+
+################################################################################
+
+# Tires sales:
+
+ggplot() +
+  
+  geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$Tire_Sales,
+                 colour = data_1_allmonths$Sign), alpha = 0.5) +
+  #geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_sales), colour = "blue", alpha = 0.4) +
+
+
+  geom_smooth(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_sales, group = 1), 
+              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+
+  
+  ylim(0, 5000) +
+  xlab("") +
+  theme_gray() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(limits = data_1_allmonths$Month) +
+  ylab("Tire Sales")
+
+
+```
+
+# Now lets try estimating peak season sales rates, as these may be more comparable between peak seasons. I will develop a rate from the previous peak season and apply it to the new season.
+
+
+
+
+
+
+
+
