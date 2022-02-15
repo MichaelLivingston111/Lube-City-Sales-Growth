@@ -7,12 +7,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Creating seasonally cyclical models to estimate future monthly revenue. 
-Please read the readme.file in this repository for more details on the goals of this project.
+# Creating seasonally cyclical models to estimate future monthly revenue. 
+# Please read the readme.file in this repository for more details on the goals of this project.
 
 
 
-Load required packages:
+# Load required packages:
 ```{r}
 
 suppressMessages(library(ggfortify))
@@ -26,7 +26,7 @@ suppressMessages(library(ggpubr))
 ```
 
 
-Load data:
+# Load data:
 ```{r}
 
 data <- read.csv("Data.csv", stringsAsFactors = FALSE)
@@ -57,7 +57,7 @@ data_1_allmonths <- data[!(data$Store_Id == "16" | data$Store_Id == "23"), ]
 ```
 
 
-Store 16: Create general additive models with smoothing terms for month and seasonal sales cycles.
+# Store 16: Create general additive models with smoothing terms for month and seasonal sales cycles.
 ```{r}
 
 # Tire sales: 
@@ -84,7 +84,7 @@ data_16_allmonths$fit_services <- predict(model_gam_services,
 ```
 
 
-Store 16: Visualize the models and forecast revenue for each sale type:
+# Store 16: Visualize the models and forecast revenue for each sale type:
 ```{r}
 
 # Tires Sales
@@ -134,7 +134,7 @@ ggplot() +
 ```
 
 
-Store 1: Create general additive models with smoothing terms for month and seasonal sales cycles.
+# Store 1: Create general additive models with smoothing terms for month and seasonal sales cycles.
 ```{r}
 
 # Tire sales:
@@ -152,7 +152,7 @@ data_1_allmonths$fit_services <- predict(model_gam_services, data_1_allmonths, t
 ```
 
 
-Store 1: Visualize the models and forecast revenue for each sale type:
+# Store 1: Visualize the models and forecast revenue for each sale type:
 ```{r}
 
 # Tire sales:
