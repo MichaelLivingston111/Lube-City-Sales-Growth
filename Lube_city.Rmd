@@ -34,7 +34,7 @@ data <- read.csv("Data.csv", stringsAsFactors = FALSE)
 data2 <- data[!(data$Month == "2021_Nov"), ]
 
 
-# Index the data into different data frames (training sets and total sets). We want to train the a seasonally cyclical model(s) on the monthly sales revenue from Oct 2020 - Sept 2021. Using these models we can then forecast revenue estimates for the period of interest (more info in the readme file). 
+# # Index the data into different data frames (training sets and total sets). We want to train the a seasonally cyclical model(s) on the monthly sales revenue from Oct 2020 - Sept 2021. Using these models we can then forecast revenue estimates for the period of interest (more info in the readme file). 
 
 # Store 16 train model data:
 data_16 <- data[!(data$Store_Id == "1" | data$Store_Id == "23" | 
