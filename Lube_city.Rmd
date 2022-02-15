@@ -7,7 +7,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Creating seasonally cyclical models to estimate future monthly revenue. 
+Please read the readme.file in this repository for more details on the goals of this project.
 
+
+
+Load required packages:
 ```{r}
 
 suppressMessages(library(ggfortify))
@@ -21,182 +26,170 @@ suppressMessages(library(ggpubr))
 ```
 
 
-
+Load data:
 ```{r}
 
 data <- read.csv("Data.csv", stringsAsFactors = FALSE)
 
 data2 <- data[!(data$Month == "2021_Nov"), ]
 
-# Store 16 data:
-data_16 <- data[!(data$Store_Id == "1" | data$Store_Id == "23" | data$Month == "2021_Nov" | data$Month == "2021_Oct"), ]
+
+# Index the data into different data frames (training sets and total sets). We want to train the a seasonally cyclical model(s) on the monthly sales revenue from Oct 2020 - Sept 2021. Using these models we can then forecast revenue estimates for the period of interest (more info in the readme file). 
+
+# Store 16 train model data:
+data_16 <- data[!(data$Store_Id == "1" | data$Store_Id == "23" | 
+                    data$Month == "2021_Nov" | data$Month == "2021_Oct" | 
+                    data$Month == "2021_Dec"), ]
+
+# Store 16 all data:
 data_16_allmonths <- data[!(data$Store_Id == "1" | data$Store_Id == "23"), ]
 
 
-# Store 1 data:
-data_1 <- data[!(data$Store_Id == "16" | data$Store_Id == "23" | data$Month == "2021_Nov" | data$Month == "2021_Oct"), ]
+# Store 1 train model data:
+data_1 <- data[!(data$Store_Id == "16" | data$Store_Id == "23" | 
+                   data$Month == "2021_Nov" | data$Month == "2021_Oct"| 
+                    data$Month == "2021_Dec"), ]
+
+# Store 1 all data:
 data_1_allmonths <- data[!(data$Store_Id == "16" | data$Store_Id == "23"), ]
 
 
 ```
 
 
+Store 16: Create general additive models with smoothing terms for month and seasonal sales cycles.
 ```{r}
 
-# Set as a time series:
-Y <- ts(data$Sales, start = c(2020, 10), frequency = 12)
+# Tire sales: 
+model_gam_sales <- gam(Tire_Sales ~ s(Month_count, k = 6, bs = 'cs') + 
+                            s(Month_count2, k = 5, bs = 'cs'), 
+                            data = data_16)  # model
 
-print(Y)
+data_16_allmonths$fit_sales <- predict(model_gam_sales, 
+                            data_16_allmonths, 
+                            type = "response")  # estimates
+
+
+
+# Tire services: 
+model_gam_services <- gam(Service_sales ~ s(Month_count, k = 6, bs = 'cs') + 
+                            s(Month_count2, k = 5, bs = 'cs'), 
+                            data = data_16)  # model
+
+data_16_allmonths$fit_services <- predict(model_gam_services, 
+                            data_16_allmonths, 
+                            type = "response")  # estimates
+
 
 ```
 
 
+Store 16: Visualize the models and forecast revenue for each sale type:
 ```{r}
 
-# Time plot:
-
-autoplot(Y) 
-
-
-
-```
-
-
-```{r}
-
-fit_ets <- ets(Y)
-print(summary(fit_ets))
-checkresiduals(fit_ets)
-
-
-fit_arima <- auto.arima(Y)
-print(summary(fit_arima))
-checkresiduals(fit_arima)
-
-
-```
-```{r}
-
-fcast <- forecast(fit_arima, h = 2)
-
-autoplot(fcast)
-
-```
-
-# Lets try some GAMS:
-
-Store 16
-```{r}
-# Create a general additive model to estimate monthly revenue based off of 2020 monthly revenue, 
-# excluding Oct and Nov 2021:
-
-
-# Tire services:
-model_gam_services <- gam(Service_sales ~ s(Month_count, k = 11, bs = 'cc'), data = data_16)  # model
-data_16_allmonths$fit_services <- predict(model_gam_services, data_16_allmonths, type = "response")  # estimates
-
-
-# Tire sales:
-model_gam_sales <- gam(Tire_Sales ~ s(Month_count, k = 6, bs = 'cc'), data = data_16)  # model
-data_16_allmonths$fit_sales <- predict(model_gam_sales, data_16_allmonths, type = "response")  # estimates
-
-```
-
-
-
-Store 16
-```{r}
-
-
-# Tire sales services:
-
-# Apply the model to the entire data frame, and make predictions over the entire period, 
-#including Oct and Nov 2021:
-
+# Tires Sales
 
 ggplot() +
   
-  geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$Service_sales, 
-                 colour = data_16_allmonths$Sign), alpha = 0.5) +
-  #geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_services), colour = "blue", alpha = 0.4) +
+  geom_point(aes(x = data_16$Month, y = data_16$Tire_Sales), # Sales
+                  alpha = 0.5, colour = 'red') +
+  geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_sales), # Forecast sales
+                  alpha = 0.4,colour = "blue") +
 
+  geom_smooth(aes(x = data_16_allmonths$ Month, 
+                  y = data_16_allmonths$fit_sales, group = 1), # Visualize the model
+                  method = 'gam', lty = 'blank', fill = "blue", 
+                  alpha = 0.1, se = TRUE) +
 
-  geom_smooth(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_services, group = 1), 
-              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+  labs(x = "", y = "Tire Sales", color = "Legend") +
 
-  
-  ylim(0, 15000) +
-  xlab("") +
-  theme_gray() +
+  ylim(0, 20000) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-  scale_x_discrete(limits = data_16_allmonths$Month) +
-  ylab("Tire Service Sales")
+  scale_x_discrete(limits = data_16_allmonths$Month) 
 
 
 
-################################################################################
-
-# Tires sales:
+# Service Sales
 
 ggplot() +
   
-  geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$Tire_Sales,
-                 colour = data_16_allmonths$Sign), alpha = 0.5) +
-  #geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_sales), colour = "blue", alpha = 0.4) +
+  geom_point(aes(x = data_16$Month, y = data_16$Service_sales),  # Sales
+                  alpha = 0.5, colour = 'red') +
+  geom_point(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_services), # Forecast sales
+                  alpha = 0.4, colour = "blue") +
 
+  geom_smooth(aes(x = data_16_allmonths$Month,
+                  y = data_16_allmonths$fit_services, group = 1), 
+                  method = 'gam', lty = 'dotted', fill = "blue", 
+                  alpha = 0.1, se = FALSE) +
 
-  geom_smooth(aes(x = data_16_allmonths$Month, y = data_16_allmonths$fit_sales, group = 1), 
-              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+  labs(x = "", y = "Tire Service Sales", color = "Legend") +
 
-  
-  ylim(0, 19000) +
-  xlab("") +
-  theme_gray() +
+  ylim(0, 7500) +
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-  scale_x_discrete(limits = data_16_allmonths$Month) +
-  ylab("Tire Sales")
+  scale_x_discrete(limits = data_16_allmonths$Month) 
+
 
 
 ```
 
-Store 1
+
+Store 1: Create general additive models with smoothing terms for month and seasonal sales cycles.
 ```{r}
-# Create a general additive model to estimate monthly revenue based off of 2020 monthly revenue, 
-# excluding Oct and Nov 2021:
-
-
-# Tire services:
-model_gam_services <- gam(Service_sales ~ s(Month_count, k = 10, bs = 'cc'), data = data_1)  # model
-data_1_allmonths$fit_services <- predict(model_gam_services, data_16_allmonths, type = "response")  # estimates
-
 
 # Tire sales:
-model_gam_sales <- gam(Tire_Sales ~ s(Month_count, k = 10, bs = 'cc'), data = data_1)  # model
+model_gam_sales <- gam(Tire_Sales ~ s(Month_count, k = 5, bs = 'cc') +
+                        s(Month_count2, k = 7, bs = 'cs'), data = data_1)  # model
 data_1_allmonths$fit_sales <- predict(model_gam_sales, data_1_allmonths, type = "response")  # estimates
 
+
+# Tire services:
+model_gam_services <- gam(Service_sales ~ s(Month_count, k = 6, bs = 'cs') +
+                            s(Month_count2, k = 5, bs = 'cs'), data = data_1)  # model
+data_1_allmonths$fit_services <- predict(model_gam_services, data_1_allmonths, type = "response")  # estimates
+
+
 ```
 
 
-
-Store 1
+Store 1: Visualize the models and forecast revenue for each sale type:
 ```{r}
 
-
-# Tire sales services:
-
-# Apply the model to the entire data frame, and make predictions over the entire period, 
-#including Oct and Nov 2021:
-
+# Tire sales:
 
 ggplot() +
   
-  geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$Service_sales, 
-                 colour = data_1_allmonths$Sign), alpha = 0.5) +
-  #geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_services), colour = "blue", alpha = 0.4) +
+  geom_point(aes(x = data_1_allmonths$Month,  # Sales
+                    y = data_1_allmonths$Tire_Sales,
+                    colour = data_1_allmonths$Sign), alpha = 0.5) +
+
+  geom_smooth(aes(x = data_1_allmonths$Month,  # Forecast estimates
+                    y = data_1_allmonths$fit_sales, group = 1), 
+                    method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+
+  
+  ylim(0, 5000) +
+  xlab("") +
+  theme_gray() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(limits = data_1_allmonths$Month) +
+  ylab("Tire Sales")
 
 
-  geom_smooth(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_services, group = 1), 
-              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
+
+#  Service sales:
+
+ggplot() +
+  
+  geom_point(aes(x = data_1_allmonths$Month,   # Sales
+                    y = data_1_allmonths$Service_sales), 
+                    alpha = 0.5) +
+  
+
+
+  geom_smooth(aes(x = data_1_allmonths$Month,  # Forecast estimates
+                    y = data_1_allmonths$fit_services, group = 1), 
+                    method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
 
   
   ylim(0, 5000) +
@@ -208,34 +201,7 @@ ggplot() +
 
 
 
-################################################################################
-
-# Tires sales:
-
-ggplot() +
-  
-  geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$Tire_Sales,
-                 colour = data_1_allmonths$Sign), alpha = 0.5) +
-  #geom_point(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_sales), colour = "blue", alpha = 0.4) +
-
-
-  geom_smooth(aes(x = data_1_allmonths$Month, y = data_1_allmonths$fit_sales, group = 1), 
-              method = 'gam', lty = 'dotted', fill = "blue", alpha = 0.1) +
-
-  
-  ylim(0, 5000) +
-  xlab("") +
-  theme_gray() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) +
-  scale_x_discrete(limits = data_1_allmonths$Month) +
-  ylab("Tire Sales")
-
-
 ```
-
-# Now lets try estimating peak season sales rates, as these may be more comparable between peak seasons. I will develop a rate from the previous peak season and apply it to the new season.
-
-
 
 
 
